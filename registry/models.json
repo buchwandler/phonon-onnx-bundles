@@ -1,0 +1,111 @@
+{
+  "exporter": {
+    "entrypoint": "export/export.py",
+    "kind": "hf-recipe",
+    "license": "Apache-2.0",
+    "repo_id": "ai-ecoverse/phonon-31m-en-ONNX",
+    "revision": "1305012835866c6c0c0ccc518f40f17610b8222f"
+  },
+  "models": {
+    "phonon-31m-en": {
+      "commercial_use": true,
+      "gated": false,
+      "languages": [
+        "en"
+      ],
+      "license": "Apache-2.0",
+      "parameters_m": 31,
+      "repo_id": "gradium/phonon-31m-en",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-de": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "de"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-de",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-en": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "en"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-en",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-es": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "es"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-es",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-fr": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "fr"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-fr",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-multilingual": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "en",
+        "fr",
+        "de",
+        "es",
+        "pt"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-multilingual",
+      "revision": "main",
+      "voice_scope": "en"
+    },
+    "phonon-40m-pt": {
+      "commercial_use": false,
+      "gated": true,
+      "languages": [
+        "pt"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "parameters_m": 40,
+      "repo_id": "gradium/phonon-40m-pt",
+      "revision": "main",
+      "voice_scope": "en"
+    }
+  },
+  "precisions": [
+    "fp32",
+    "q8",
+    "q4",
+    "fp16"
+  ],
+  "schema_version": 1,
+  "voices": {
+    "license": "Apache-2.0",
+    "repo_id": "gradium/phonon-voices",
+    "revision": "main"
+  }
+}

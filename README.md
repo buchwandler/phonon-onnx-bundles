@@ -1,1 +1,46 @@
-# phonon-onnx-bundles
+# phonon-onnx-bundles (MVP)
+
+Build, verify, release, and catalog streaming ONNX bundles for the Gradium Phonon family.
+
+## Covered checkpoints
+
+The registry contains all current Phonon variants: `phonon-31m-en`, the five monolingual 40m checkpoints (`en`, `fr`, `de`, `es`, `pt`), and `phonon-40m-multilingual`. Every bundle uses the same four-graph runtime ABI documented in `docs/EXPORT_BACKEND.md`.
+
+**License boundary:** `phonon-31m-en` is Apache-2.0. The 40m checkpoints are CC-BY-NC-4.0 and gated; builds require an accepted Hugging Face account token and an explicit non-commercial acknowledgement. The bundle manifest keeps this restriction machine-readable.
+
+## Build locally
+
+```bash
+python -m pip install -e '.[build,test]'
+python scripts/build_bundle.py phonon-31m-en --precision q4
+python scripts/verify_candidate.py "$(find dist -mindepth 1 -maxdepth 1 -type d -print -quit)"
+```
+
+For a gated 40m checkpoint:
+
+```bash
+export HF_TOKEN=hf_...   # account must have accepted the model terms
+python scripts/build_bundle.py phonon-40m-fr --precision q4 --allow-noncommercial
+```
+
+The build resolves `main` to an immutable source commit before export. The release tag includes the source SHA prefix, and `export-provenance.json` records the full model, exporter, and voice revisions.
+
+## GitHub Actions
+
+- **checks**: tests, schema/catalog integrity, deterministic source-catalog rebuild; no model download.
+- **build-bundle**: manual single-model export, ONNX verification, artifact upload, optional immutable GitHub Release and catalog update.
+- **build-all-models**: manual matrix over all seven model variants.
+- **refresh-catalog**: scheduled/manual deterministic rebuild of the source catalog plus discovery of published release manifests.
+
+Add `HF_TOKEN` as a repository Actions secret before building 40m checkpoints. For public 31m builds it can be absent.
+
+## Catalogs
+
+- `catalog/models.json` is generated deterministically from `registry/models.json` and describes buildable source models.
+- `catalog/bundles.json` is rebuilt from immutable GitHub Release `release-manifest.json` assets; it starts empty in this MVP and fills after publishing bundles.
+
+Run `python scripts/check_catalog_integrity.py` before committing catalog changes.
+
+## Export provenance
+
+The MVP intentionally does not vendor the large ONNX converter. It pins the Apache-2.0 export recipe from `ai-ecoverse/phonon-31m-en-ONNX` and executes that revision against each selected Gradium checkpoint. This keeps the first version small and auditable while preserving a clean path to a native exporter later.

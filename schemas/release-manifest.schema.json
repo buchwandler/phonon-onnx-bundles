@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exporter": {
+      "type": "object"
+    },
+    "license": {
+      "type": "object"
+    },
+    "model_key": {
+      "type": "string"
+    },
+    "precision": {
+      "enum": [
+        "fp32",
+        "q8",
+        "q4",
+        "fp16"
+      ]
+    },
+    "runtime": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "source": {
+      "type": "object"
+    },
+    "tag": {
+      "type": "string"
+    },
+    "voices": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "tag",
+    "model_key",
+    "precision",
+    "source",
+    "exporter",
+    "runtime",
+    "license",
+    "assets"
+  ],
+  "type": "object"
+}

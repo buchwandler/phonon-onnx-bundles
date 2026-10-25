@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phonon-onnx-bundles"
+version = "0.1.0"
+description = "Build, verify, release, and catalog Gradium Phonon ONNX bundles"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8", "jsonschema>=4", "onnx>=1.17"]
+build = ["huggingface-hub>=0.27,<2", "numpy>=1.26", "onnx>=1.17", "onnxruntime>=1.22", "safetensors>=0.5", "torch>=2.7"]
+
+[tool.setuptools.packages.find]
+include = ["phonon_onnx_bundles*"]

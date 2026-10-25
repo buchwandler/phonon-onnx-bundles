@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bundles": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "download_url": {
+            "type": "string"
+          },
+          "license": {
+            "type": "object"
+          },
+          "model_key": {
+            "type": "string"
+          },
+          "precision": {
+            "enum": [
+              "fp32",
+              "q8",
+              "q4",
+              "fp16"
+            ]
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_revision": {
+            "minLength": 7,
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "model_key",
+          "precision",
+          "source_revision",
+          "license",
+          "download_url",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "bundles"
+  ],
+  "type": "object"
+}

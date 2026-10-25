@@ -1,0 +1,3 @@
+phonon-onnx-bundles is an independent conversion/build project and is not an official Gradium release.
+The repository code is Apache-2.0. Exported model artifacts retain their upstream model licenses.
+The MVP invokes, but does not vendor, the pinned Apache-2.0 export recipe identified in registry/models.json.
