@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 from typing import Any
-from huggingface_hub import HfApi, snapshot_download
 from phonon_onnx_bundles.catalog import registry, model_spec
 from phonon_onnx_bundles.manifest import GRAPH_FILES, write_json
 
@@ -22,9 +21,13 @@ ALL_GRAPHS=("text_conditioner","flow_lm_main","flow_lm_flow","mimi_decoder")
 class ExportError(RuntimeError): pass
 
 def _snap(repo_id:str, revision:str, token:str|None, allow_patterns:list[str]|None=None)->Path:
+    from huggingface_hub import snapshot_download
+
     return Path(snapshot_download(repo_id=repo_id, revision=revision, token=token, allow_patterns=allow_patterns))
 
 def _resolved_sha(repo_id:str, revision:str, token:str|None)->str:
+    from huggingface_hub import HfApi
+
     info=HfApi(token=token).model_info(repo_id, revision=revision)
     if not info.sha: raise ExportError(f"could not resolve immutable revision for {repo_id}@{revision}")
     return info.sha
