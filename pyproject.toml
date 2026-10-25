@@ -11,7 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=8", "jsonschema>=4", "onnx>=1.17"]
-build = ["huggingface-hub>=0.27,<2", "numpy>=1.26", "onnx>=1.17", "onnxruntime>=1.22", "safetensors>=0.5", "torch>=2.7"]
+build = ["huggingface-hub>=0.27,<2", "numpy>=1.26", "onnx>=1.17", "onnx-ir>=1.1,<2", "onnxruntime>=1.22", "safetensors>=0.5", "torch>=2.7"]
 
 [tool.setuptools.packages.find]
 include = [
