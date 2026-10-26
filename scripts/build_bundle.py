@@ -83,6 +83,21 @@ def _finite_number(value: Any, field: str, *, minimum: float | None = None) -> f
     return number
 
 
+def _derive_sample_rate(config: Mapping[str, Any]) -> int | None:
+    """Derive audio sample rate from the exported frame size and frame rate."""
+    frame_samples = _config_value(config, "runtime", ("frame_samples",))
+    frame_rate = _config_value(config, "runtime", ("frame_rate",))
+    if isinstance(frame_samples, bool) or not isinstance(frame_samples, int) or frame_samples <= 0:
+        return None
+    if isinstance(frame_rate, bool) or not isinstance(frame_rate, (int, float)):
+        return None
+    derived = float(frame_samples) * float(frame_rate)
+    if not math.isfinite(derived) or derived <= 0 or derived % 1 != 0:
+        return None
+    return int(derived)
+
+
+
 def _generation_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for normalized, aliases in _GENERATION_FIELDS.items():
@@ -172,6 +187,8 @@ def normalize_phonon_config(
     runtime: dict[str, Any] = {"kind": _RUNTIME_KIND, "graphs": list(GRAPH_FILES)}
     for field, aliases in _RUNTIME_FIELDS.items():
         value = _config_value(raw_config, "runtime", aliases)
+        if field == "sample_rate" and value is None:
+            value = _derive_sample_rate(raw_config)
         if field == "mimi_state":
             if not isinstance(value, (Mapping, list, tuple)) or not value:
                 raise ValueError("Phonon config must declare non-empty onnx.mimi_state")

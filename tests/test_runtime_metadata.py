@@ -49,7 +49,7 @@ def test_runtime_metadata_accepts_exporter_nested_runtime_sections(tmp_path):
     (tmp_path / "voices/easton.bin").write_bytes(b"prompt")
     config = _config()
     config.pop("runtime")
-    config["mimi"] = {"sample_rate": 24000, "frame_rate": 12.5}
+    config["mimi"] = {"frame_rate": 12.5}
     config["flow_lm"] = {"d_model": 512, "num_layers": 6, "num_heads": 8}
     config["onnx"] = {
         "frame_samples": 1920,
