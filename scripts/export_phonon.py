@@ -10,6 +10,7 @@ replace only this adapter without changing bundle/catalog contracts.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import shutil
@@ -67,6 +68,47 @@ def _resolve_or_use_sha(repo_id: str, revision: str, token: str | None) -> str:
     if is_commit_sha(revision):
         return revision
     return _resolved_sha(repo_id, revision, token)
+
+def _topologically_sorted_nodes(graph: Any) -> list[Any]:
+    available = {value.name for value in graph.input}
+    available.update(value.name for value in graph.initializer)
+    pending = list(graph.node)
+    ordered: list[Any] = []
+
+    while pending:
+        next_pending = []
+        progressed = False
+        for node in pending:
+            inputs = {name for name in node.input if name}
+            if inputs <= available:
+                ordered.append(node)
+                available.update(name for name in node.output if name)
+                progressed = True
+            else:
+                next_pending.append(node)
+        if not progressed:
+            missing = sorted({name for node in next_pending for name in node.input if name not in available})
+            raise ExportError(f"ONNX graph has an unresolvable dependency: {missing[:5]}")
+        pending = next_pending
+    return ordered
+
+
+def _repair_graph_order(path: Path) -> None:
+    onnx = importlib.import_module("onnx")
+
+    model = onnx.load(str(path), load_external_data=True)
+    try:
+        onnx.checker.check_model(model)
+    except onnx.checker.ValidationError as exc:
+        if "topologically sorted" not in str(exc).lower():
+            raise
+        ordered = _topologically_sorted_nodes(model.graph)
+        del model.graph.node[:]
+        model.graph.node.extend(ordered)
+        onnx.checker.check_model(model)
+        onnx.save(model, str(path))
+
+
 def _select_graph(raw_onnx:Path, name:str, precision:str)->Path:
     suffix=PRECISION_SUFFIX[precision]
     if precision in {"q8","q4"} and name not in FLOW_GRAPHS:
@@ -113,7 +155,9 @@ def run_export(
         subprocess.run(cmd, check=True, env={**os.environ,"PYTHONHASHSEED":"0"})
         output.mkdir(parents=True, exist_ok=True); (output/"onnx").mkdir(exist_ok=True)
         for name in ALL_GRAPHS:
-            shutil.copy2(_select_graph(raw/"onnx",name,precision), output/"onnx"/f"{name}.onnx")
+            destination = output / "onnx" / f"{name}.onnx"
+            shutil.copy2(_select_graph(raw / "onnx", name, precision), destination)
+            _repair_graph_order(destination)
         for name in ("config.json","tokenizer.json"):
             shutil.copy2(raw/name, output/name)
         if (raw/"voices").exists(): shutil.copytree(raw/"voices", output/"voices", dirs_exist_ok=True)

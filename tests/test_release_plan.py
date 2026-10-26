@@ -120,6 +120,7 @@ def test_run_export_uses_and_records_release_plan_pins(tmp_path, monkeypatch):
     monkeypatch.setattr(export_phonon, "_snap", snapshot)
     monkeypatch.setattr(export_phonon.subprocess, "run", run_recipe)
     monkeypatch.setattr(export_phonon, "preserve_upstream_notices", lambda *_args: [])
+    monkeypatch.setattr(export_phonon, "_repair_graph_order", lambda _path: None)
     provenance = export_phonon.run_export(
         model_key,
         "fp32",
