@@ -14,7 +14,7 @@ on:
         type: choice
         options: [fp32, q8, q4, fp16]
       allow_noncommercial:
-        description: Required for CC-BY-NC-4.0 40m checkpoints
+        description: Acknowledges the CC-BY-NC-4.0 noncommercial condition; does not grant commercial rights
         required: true
         default: false
         type: boolean
@@ -42,16 +42,16 @@ jobs:
         run: python -m pip install -e '.[build,test]'
       - name: Unit and catalog checks
         run: pytest -q && python scripts/check_catalog_integrity.py
-      - name: Enforce model-license acknowledgement
+      - name: Require noncommercial-license acknowledgement
         if: startsWith(inputs.model_key, 'phonon-40m-') && !inputs.allow_noncommercial
         run: |
-          echo '40m model weights are CC-BY-NC-4.0; rerun with allow_noncommercial=true.' >&2
+          echo '40m model weights are CC-BY-NC-4.0; the acknowledgement does not grant commercial rights. Set allow_noncommercial=true only after reviewing the license.' >&2
           exit 2
       - name: Build candidate
         run: >-
           python scripts/build_bundle.py '${{ inputs.model_key }}'
           --precision '${{ inputs.precision }}'
-          ${{ inputs.allow_noncommercial && '--allow-noncommercial' || '' }}
+          ${{ inputs.allow_noncommercial && '--acknowledge-noncommercial-license' || '' }}
       - name: Resolve candidate
         id: candidate
         run: |
@@ -59,7 +59,7 @@ jobs:
           tag="$(basename "$d")"
           echo "dir=$d" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-      - name: Verify ONNX candidate
+      - name: Verify ONNX, license and attribution compliance
         run: python scripts/verify_candidate.py '${{ steps.candidate.outputs.dir }}'
       - uses: actions/upload-artifact@v4
         with:
@@ -74,7 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; refusing to replace immutable assets." >&2
+            echo "Release $TAG already exists; refusing replacement by default. See docs/ATTRIBUTION_REMEDIATION.md for an authorized compliance-remediation exception." >&2
             exit 1
           fi
           gh release create "$TAG"             "$CANDIDATE/$TAG.zip" "$CANDIDATE/release-manifest.json" "$CANDIDATE/SHA256SUMS"             --target "$GITHUB_SHA" --title "$TAG" --notes-file "$CANDIDATE/release-notes.md"

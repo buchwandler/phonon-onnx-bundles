@@ -25,7 +25,7 @@ def main():
         if not zip_asset: continue
         rows.append({
           "tag":man["tag"],"model_key":man["model_key"],"precision":man["precision"],
-          "source_revision":man["source"]["resolved_revision"],"license":man["license"],
+          "source_revision":man["source"]["resolved_revision"],"source_uri":man["source"].get("uri"),"license":man["license"],
           "download_url":zip_asset["browser_download_url"],"bytes":zip_asset["size"],
           "published_at":rel.get("published_at"),
         })

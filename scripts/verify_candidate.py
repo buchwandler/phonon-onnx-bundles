@@ -5,6 +5,7 @@ from pathlib import Path
 import onnx
 from jsonschema import Draft202012Validator
 from phonon_onnx_bundles.manifest import GRAPH_FILES, sha256
+from phonon_onnx_bundles.licensing import validate_license_metadata
 
 REQ={
  "onnx/text_conditioner.onnx":({"input_ids","duration_delta"},{"inputs_embeds","bos_embeds"}),
@@ -22,6 +23,17 @@ def verify(root:Path)->None:
         p=root/"bundle"/rec["path"]
         if not p.is_file(): raise VerifyError(f"missing {rec['path']}")
         if p.stat().st_size!=rec["bytes"] or sha256(p)!=rec["sha256"]: raise VerifyError(f"asset mismatch {rec['path']}")
+    try:
+        validate_license_metadata(man,root/"bundle")
+    except (ValueError,KeyError,TypeError) as exc:
+        raise VerifyError(str(exc)) from exc
+    attribution=man["license"]["attribution_path"]
+    attribution_record=next(rec for rec in man["assets"] if rec["path"]==attribution)
+    sums_path=root/"SHA256SUMS"
+    if not sums_path.is_file(): raise VerifyError("missing SHA256SUMS")
+    expected_sum=f"{attribution_record['sha256']}  bundle/{attribution}"
+    if expected_sum not in sums_path.read_text(encoding="utf-8").splitlines():
+        raise VerifyError("SHA256SUMS missing ATTRIBUTION.md checksum")
     for rel in GRAPH_FILES:
         p=root/"bundle"/rel; model=onnx.load(str(p),load_external_data=True); onnx.checker.check_model(model)
         ins={x.name for x in model.graph.input}; outs={x.name for x in model.graph.output}; ri,ro=REQ[rel]
@@ -35,6 +47,9 @@ def verify(root:Path)->None:
         names=set(f.namelist()); prefix=man['tag']+'/'
         for rel in GRAPH_FILES:
             if prefix+rel not in names: raise VerifyError(f"zip missing {rel}")
+        attribution=man["license"]["attribution_path"]
+        if prefix+attribution not in names: raise VerifyError(f"zip missing {attribution}")
+        if prefix+"SHA256SUMS" not in names: raise VerifyError("zip missing SHA256SUMS")
     print(f"verified {man['tag']}")
 
 def main():

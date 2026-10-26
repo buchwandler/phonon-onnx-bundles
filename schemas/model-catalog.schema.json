@@ -24,6 +24,16 @@
           "license": {
             "type": "string"
           },
+          "license_uri": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "license_legalcode_uri": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
           "parameters_m": {
             "type": "integer"
           },

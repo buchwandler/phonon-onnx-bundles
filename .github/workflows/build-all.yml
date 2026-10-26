@@ -8,7 +8,7 @@ on:
         type: choice
         options: [fp32, q8, q4, fp16]
       allow_noncommercial:
-        description: Acknowledge CC-BY-NC-4.0 for the 40m matrix entries
+        description: Acknowledge the CC-BY-NC-4.0 noncommercial condition; this does not grant commercial rights
         required: true
         default: false
         type: boolean
@@ -26,15 +26,17 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: python -m pip install -e '.[build,test]'
-      - name: License gate
+      - name: Require noncommercial-license acknowledgement
         if: startsWith(matrix.model, 'phonon-40m-') && !inputs.allow_noncommercial
-        run: exit 2
+        run: |
+          echo 'CC BY-NC 4.0 is noncommercial; this acknowledgement does not grant commercial rights.' >&2
+          exit 2
       - name: Build
         run: >-
           python scripts/build_bundle.py '${{ matrix.model }}'
           --precision '${{ inputs.precision }}'
-          ${{ inputs.allow_noncommercial && '--allow-noncommercial' || '' }}
-      - name: Verify
+          ${{ inputs.allow_noncommercial && '--acknowledge-noncommercial-license' || '' }}
+      - name: Verify ONNX, license and attribution compliance
         run: python scripts/verify_candidate.py "$(find dist -mindepth 1 -maxdepth 1 -type d -print -quit)"
       - uses: actions/upload-artifact@v4
         with:

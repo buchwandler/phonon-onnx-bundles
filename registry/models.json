@@ -4,6 +4,7 @@
     "kind": "hf-recipe",
     "license": "Apache-2.0",
     "repo_id": "ai-ecoverse/phonon-31m-en-ONNX",
+    "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
     "revision": "1305012835866c6c0c0ccc518f40f17610b8222f"
   },
   "models": {
@@ -14,6 +15,7 @@
         "en"
       ],
       "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
       "parameters_m": 31,
       "repo_id": "gradium/phonon-31m-en",
       "revision": "main",
@@ -26,6 +28,8 @@
         "de"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-de",
       "revision": "main",
@@ -38,6 +42,8 @@
         "en"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-en",
       "revision": "main",
@@ -50,6 +56,8 @@
         "es"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-es",
       "revision": "main",
@@ -62,6 +70,8 @@
         "fr"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-fr",
       "revision": "main",
@@ -78,6 +88,8 @@
         "pt"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-multilingual",
       "revision": "main",
@@ -90,6 +102,8 @@
         "pt"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
       "parameters_m": 40,
       "repo_id": "gradium/phonon-40m-pt",
       "revision": "main",
@@ -106,6 +120,7 @@
   "voices": {
     "license": "Apache-2.0",
     "repo_id": "gradium/phonon-voices",
+    "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
     "revision": "main"
   }
 }

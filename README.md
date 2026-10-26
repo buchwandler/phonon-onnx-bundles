@@ -6,7 +6,14 @@ Build, verify, release, and catalog streaming ONNX bundles for the Gradium Phono
 
 The registry contains all current Phonon variants: `phonon-31m-en`, the five monolingual 40m checkpoints (`en`, `fr`, `de`, `es`, `pt`), and `phonon-40m-multilingual`. Every bundle uses the same four-graph runtime ABI documented in `docs/EXPORT_BACKEND.md`.
 
-**License boundary:** `phonon-31m-en` is Apache-2.0. The 40m checkpoints are CC-BY-NC-4.0 and gated; builds require an accepted Hugging Face account token and an explicit non-commercial acknowledgement. The bundle manifest keeps this restriction machine-readable.
+**License boundary:** `phonon-31m-en` is Apache-2.0. The 40m checkpoints are CC BY-NC 4.0 and gated; builds require an accepted Hugging Face account token and a noncommercial-license acknowledgement. That acknowledgement does not grant commercial-use rights.
+
+
+## Third-party attribution
+
+The repository's source-code license is separate from each upstream model and voice-asset license. Every generated bundle carries `ATTRIBUTION.md`, preserves upstream attribution/notice files under `third_party/model/` and `third_party/voices/`, and records immutable Hugging Face source-revision URLs in its provenance and release manifest. Inspect these files in the downloaded ZIP rather than relying on a release page.
+
+For CC BY-NC 4.0 checkpoints, `--acknowledge-noncommercial-license` (the legacy `--allow-noncommercial` alias remains supported) records acknowledgement only; it does not grant commercial rights or determine whether a use is NonCommercial. See [`MODEL_LICENSES.md`](MODEL_LICENSES.md) and [`docs/ATTRIBUTION_REMEDIATION.md`](docs/ATTRIBUTION_REMEDIATION.md).
 
 ## Build locally
 
@@ -20,7 +27,7 @@ For a gated 40m checkpoint:
 
 ```bash
 export HF_TOKEN=hf_...   # account must have accepted the model terms
-python scripts/build_bundle.py phonon-40m-fr --precision q4 --allow-noncommercial
+python scripts/build_bundle.py phonon-40m-fr --precision q4 --acknowledge-noncommercial-license
 ```
 
 The build resolves `main` to an immutable source commit before export. The release tag includes the source SHA prefix, and `export-provenance.json` records the full model, exporter, and voice revisions.

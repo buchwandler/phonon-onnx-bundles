@@ -37,6 +37,10 @@
             "minLength": 7,
             "type": "string"
           },
+          "source_uri": {
+            "format": "uri",
+            "type": ["string", "null"]
+          },
           "tag": {
             "type": "string"
           }

@@ -8,6 +8,7 @@
         "en"
       ],
       "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
       "parameters_m": 31,
       "precisions": [
         "fp32",
@@ -27,6 +28,8 @@
         "de"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
@@ -46,6 +49,8 @@
         "en"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
@@ -65,6 +70,8 @@
         "es"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
@@ -84,6 +91,8 @@
         "fr"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
@@ -107,6 +116,8 @@
         "pt"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
@@ -126,6 +137,8 @@
         "pt"
       ],
       "license": "CC-BY-NC-4.0",
+      "license_legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
+      "license_uri": "https://creativecommons.org/licenses/by-nc/4.0/",
       "parameters_m": 40,
       "precisions": [
         "fp32",
