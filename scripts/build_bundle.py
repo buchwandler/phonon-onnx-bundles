@@ -117,6 +117,8 @@ def _generation_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
 
 def _voice_metadata(config: Mapping[str, Any], bundle: Path) -> tuple[list[dict[str, Any]], str, list[str]]:
     raw_voices = config.get("voices")
+    if raw_voices is None:
+        raw_voices = _mapping(config.get("onnx")).get("voices")
     voices: list[dict[str, Any]] = []
     if isinstance(raw_voices, Mapping):
         entries = []
@@ -152,6 +154,8 @@ def _voice_metadata(config: Mapping[str, Any], bundle: Path) -> tuple[list[dict[
         voices.append(detail)
 
     default_voice = config.get("default_voice")
+    if default_voice is None:
+        default_voice = _mapping(config.get("onnx")).get("default_voice")
     if not isinstance(default_voice, str) or default_voice not in names:
         raise ValueError("Phonon config default_voice must name a bundled voice")
     raw_languages = config.get("languages")
