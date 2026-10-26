@@ -44,6 +44,30 @@ def _config() -> dict:
     }
 
 
+def test_runtime_metadata_accepts_exporter_nested_runtime_sections(tmp_path):
+    (tmp_path / "voices").mkdir()
+    (tmp_path / "voices/easton.bin").write_bytes(b"prompt")
+    config = _config()
+    config.pop("runtime")
+    config["mimi"] = {"sample_rate": 24000, "frame_rate": 12.5}
+    config["flow_lm"] = {"d_model": 512, "num_layers": 6, "num_heads": 8}
+    config["onnx"] = {
+        "frame_samples": 1920,
+        "head_dim": 64,
+        "latent_dim": 32,
+        "mimi_state": [{"name": "cache", "shape": [1, 2], "dtype": "float32"}],
+    }
+
+    runtime, _, _, _, _ = runtime_metadata(config, tmp_path, ["en"])
+
+    assert runtime["sample_rate"] == 24000
+    assert runtime["frame_samples"] == 1920
+    assert runtime["frame_rate"] == 12.5
+    assert runtime["d_model"] == 512
+    assert runtime["num_layers"] == 6
+    assert runtime["num_heads"] == 8
+
+
 def test_runtime_metadata_is_normalized_from_emitted_config(tmp_path):
     (tmp_path / "voices").mkdir()
     (tmp_path / "voices/easton.bin").write_bytes(b"prompt")

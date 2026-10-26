@@ -53,9 +53,9 @@ def _lookup(mapping: Mapping[str, Any], keys: Sequence[str]) -> tuple[bool, Any]
 
 
 def _config_value(config: Mapping[str, Any], section: str, aliases: Sequence[str]) -> Any:
-    """Read only the documented runtime/onnx locations and known root aliases."""
+    """Read documented runtime, ONNX, Mimi, and Flow-LM locations plus root aliases."""
     onnx_config = _mapping(config.get("onnx"))
-    sections = (section, "onnx", "root") if section == "runtime" else (section, "onnx.generation", "root")
+    sections = (section, "onnx", "mimi", "flow_lm", "root") if section == "runtime" else (section, "onnx.generation", "root")
     for location in sections:
         if location == "root":
             mapping = config
