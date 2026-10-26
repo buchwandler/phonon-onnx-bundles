@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: ${{ inputs.max_parallel }}
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
       matrix:
         model: ${{ fromJSON(needs.prepare.outputs.models) }}
     env:
