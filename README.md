@@ -44,7 +44,7 @@ Add `HF_TOKEN` as a repository Actions secret before building 40m checkpoints. F
 ## Catalogs
 
 - `catalog/models.json` is generated deterministically from `registry/models.json` and describes buildable source models.
-- `catalog/bundles.json` is rebuilt from immutable GitHub Release `release-manifest.json` assets; it starts empty in this MVP and fills after publishing bundles.
+- `catalog/bundles.json` is schema v2 and lists only actually published individual-file releases with bundle-relative paths, direct URLs, checksums, runtime/generation defaults, bundled voices, and license metadata; legacy ZIP-only releases remain manual downloads and are omitted.
 
 Run `python scripts/check_catalog_integrity.py` before committing catalog changes.
 

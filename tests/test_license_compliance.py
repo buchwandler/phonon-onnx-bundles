@@ -55,6 +55,16 @@ def _candidate(tmp_path: Path, precision: str = "q4"):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"synthetic ONNX placeholder")
 
+    for relative, payload in (
+        ("config.json", b"{}"),
+        ("tokenizer.json", b"{}"),
+        ("export-provenance.json", b"{}"),
+        ("voices/easton.bin", b"voice prompt"),
+    ):
+        path = bundle / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+
     license_info = {
         "spdx": "CC-BY-NC-4.0",
         "uri": source["license_uri"],
@@ -66,13 +76,36 @@ def _candidate(tmp_path: Path, precision: str = "q4"):
     }
     manifest = {
         "schema_version": 2,
+        "distribution": {"kind": "individual-files-v1"},
         "tag": tag,
         "model_key": "phonon-40m-en",
         "precision": precision,
         "source": source,
         "exporter": {},
-        "runtime": {},
-        "voices": voices,
+        "runtime": {
+            "kind": "phonon-streaming-onnx-v1",
+            "graphs": list(verify_candidate.GRAPH_FILES),
+            "sample_rate": 24000,
+            "frame_samples": 1920,
+            "frame_rate": 12.5,
+            "d_model": 512,
+            "latent_dim": 32,
+            "num_layers": 6,
+            "num_heads": 8,
+            "head_dim": 64,
+            "mimi_state": [{"name": "example", "shape": [1], "dtype": "float32"}],
+        },
+        "generation": {
+            "temperature_default": 0.8,
+            "eos_threshold_default": 4.0,
+            "duration_delta_default": 0.0,
+            "frames_after_eos": None,
+            "min_frames_before_eos": None,
+            "max_frames": None,
+        },
+        "voices": [{"name": "easton", "display_name": "Easton", "voice_id": "upstream-id", "locale": "en-US", "gender": "male", "frames": 125}],
+        "default_voice": "easton",
+        "languages": ["en"],
         "license": license_info,
         "modifications": {
             "modified": True,

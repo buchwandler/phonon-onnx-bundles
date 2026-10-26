@@ -7,81 +7,133 @@
         "additionalProperties": false,
         "properties": {
           "bytes": {"minimum": 1, "type": "integer"},
-          "path": {"type": "string"},
+          "path": {"minLength": 1, "type": "string"},
           "sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
         },
         "required": ["path", "bytes", "sha256"],
         "type": "object"
       },
+      "minItems": 1,
       "type": "array"
     },
+    "default_voice": {"minLength": 1, "type": "string"},
+    "distribution": {
+      "additionalProperties": false,
+      "properties": {"kind": {"const": "individual-files-v1"}},
+      "required": ["kind"],
+      "type": "object"
+    },
     "exporter": {"type": "object"},
-    "license": {
+    "generation": {
       "additionalProperties": false,
       "properties": {
-        "spdx": {"enum": ["CC-BY-NC-4.0", "Apache-2.0"]},
-        "uri": {"format": "uri", "type": "string"},
-        "legalcode_uri": {"format": "uri", "type": "string"},
-        "commercial_use": {"type": "boolean"},
-        "restrictions": {"items": {"type": "string"}, "type": "array"},
-        "attribution_path": {"const": "ATTRIBUTION.md"},
-        "warranty_disclaimer_section": {"type": "string"}
+        "duration_delta_default": {"type": ["number", "null"]},
+        "eos_threshold_default": {"type": ["number", "null"]},
+        "frames_after_eos": {"minimum": 0, "type": ["integer", "null"]},
+        "max_frames": {"minimum": 1, "type": ["integer", "null"]},
+        "min_frames_before_eos": {"minimum": 0, "type": ["integer", "null"]},
+        "temperature_default": {"minimum": 0, "type": ["number", "null"]}
       },
-      "required": ["spdx", "uri", "commercial_use", "restrictions", "attribution_path"],
-      "allOf": [
-        {
-          "if": {"properties": {"spdx": {"const": "CC-BY-NC-4.0"}}, "required": ["spdx"]},
-          "then": {
-            "properties": {
-              "uri": {"const": "https://creativecommons.org/licenses/by-nc/4.0/"},
-              "legalcode_uri": {"const": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en"},
-              "commercial_use": {"const": false},
-              "warranty_disclaimer_section": {"const": "Section 5"}
-            },
-            "required": ["legalcode_uri", "warranty_disclaimer_section"]
-          }
-        }
+      "required": [
+        "temperature_default",
+        "eos_threshold_default",
+        "duration_delta_default",
+        "frames_after_eos",
+        "min_frames_before_eos",
+        "max_frames"
       ],
       "type": "object"
     },
-    "model_key": {"type": "string"},
+    "languages": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+    "license": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution_path": {"const": "ATTRIBUTION.md"},
+        "commercial_use": {"type": "boolean"},
+        "legalcode_uri": {"format": "uri", "type": "string"},
+        "restrictions": {"items": {"type": "string"}, "type": "array"},
+        "spdx": {"enum": ["CC-BY-NC-4.0", "Apache-2.0"]},
+        "uri": {"format": "uri", "type": "string"},
+        "warranty_disclaimer_section": {"type": "string"}
+      },
+      "required": ["spdx", "uri", "commercial_use", "restrictions", "attribution_path"],
+      "type": "object"
+    },
+    "model_key": {"minLength": 1, "type": "string"},
     "modifications": {
       "additionalProperties": false,
       "properties": {
         "modified": {"const": true},
         "modification_notice": {"minLength": 1, "type": "string"},
-        "precision": {"enum": ["fp32", "fp16", "q8", "q4"]},
+        "precision": {"enum": ["fp32", "q8", "q4", "fp16"]},
         "quantization": {"enum": ["q8", "q4", null]}
       },
       "required": ["modified", "modification_notice", "precision", "quantization"],
       "type": "object"
     },
     "precision": {"enum": ["fp32", "q8", "q4", "fp16"]},
-    "runtime": {"type": "object"},
+    "runtime": {
+      "additionalProperties": false,
+      "properties": {
+        "d_model": {"minimum": 1, "type": "integer"},
+        "frame_rate": {"exclusiveMinimum": 0, "type": "number"},
+        "frame_samples": {"minimum": 1, "type": "integer"},
+        "graphs": {"items": {"type": "string"}, "minItems": 4, "type": "array"},
+        "head_dim": {"minimum": 1, "type": "integer"},
+        "kind": {"const": "phonon-streaming-onnx-v1"},
+        "latent_dim": {"minimum": 1, "type": "integer"},
+        "mimi_state": {"type": ["array", "object"]},
+        "num_heads": {"minimum": 1, "type": "integer"},
+        "num_layers": {"minimum": 1, "type": "integer"},
+        "sample_rate": {"minimum": 1, "type": "integer"}
+      },
+      "required": [
+        "kind", "graphs", "sample_rate", "frame_samples", "frame_rate",
+        "d_model", "latent_dim", "num_layers", "num_heads", "head_dim", "mimi_state"
+      ],
+      "type": "object"
+    },
     "schema_version": {"const": 2},
     "source": {
       "additionalProperties": false,
       "properties": {
+        "license": {"enum": ["CC-BY-NC-4.0", "Apache-2.0"]},
+        "license_legalcode_uri": {"format": "uri", "type": ["string", "null"]},
+        "license_uri": {"format": "uri", "type": "string"},
         "repo_id": {"minLength": 1, "type": "string"},
         "requested_revision": {"minLength": 1, "type": "string"},
-        "resolved_revision": {"minLength": 7, "type": "string"},
-        "uri": {"format": "uri", "type": "string"},
-        "license": {"enum": ["CC-BY-NC-4.0", "Apache-2.0"]},
-        "license_uri": {"format": "uri", "type": "string"},
-        "license_legalcode_uri": {"format": "uri", "type": ["string", "null"]}
+        "resolved_revision": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "uri": {"format": "uri", "type": "string"}
       },
-      "required": ["repo_id", "requested_revision", "resolved_revision", "uri", "license", "license_uri", "license_legalcode_uri"],
-      "allOf": [
-        {
-          "if": {"properties": {"license": {"const": "CC-BY-NC-4.0"}}, "required": ["license"]},
-          "then": {"properties": {"license_legalcode_uri": {"const": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en"}}}
-        }
+      "required": [
+        "repo_id", "requested_revision", "resolved_revision", "uri",
+        "license", "license_uri", "license_legalcode_uri"
       ],
       "type": "object"
     },
-    "tag": {"type": "string"},
-    "voices": {"type": "object"}
+    "tag": {"minLength": 1, "type": "string"},
+    "voices": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {"type": "string"},
+          "frames": {"minimum": 1, "type": "integer"},
+          "gender": {"type": "string"},
+          "locale": {"type": "string"},
+          "name": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "type": "string"},
+          "voice_id": {"type": "string"}
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
   },
-  "required": ["schema_version", "tag", "model_key", "precision", "source", "exporter", "runtime", "voices", "license", "modifications", "assets"],
+  "required": [
+    "schema_version", "distribution", "tag", "model_key", "precision", "source",
+    "exporter", "runtime", "generation", "voices", "default_voice", "languages",
+    "license", "modifications", "assets"
+  ],
   "type": "object"
 }

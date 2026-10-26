@@ -6,65 +6,108 @@
       "items": {
         "additionalProperties": false,
         "properties": {
-          "bytes": {
-            "minimum": 1,
-            "type": "integer"
+          "artifacts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "bytes": {"minimum": 1, "type": "integer"},
+                "download_url": {"format": "uri", "type": "string"},
+                "path": {"minLength": 1, "type": "string"},
+                "sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
+              },
+              "required": ["path", "bytes", "sha256", "download_url"],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
           },
-          "download_url": {
-            "type": "string"
-          },
-          "license": {
+          "default_voice": {"minLength": 1, "type": "string"},
+          "generation": {
+            "additionalProperties": false,
+            "properties": {
+              "duration_delta_default": {"type": ["number", "null"]},
+              "eos_threshold_default": {"type": ["number", "null"]},
+              "frames_after_eos": {"minimum": 0, "type": ["integer", "null"]},
+              "max_frames": {"minimum": 1, "type": ["integer", "null"]},
+              "min_frames_before_eos": {"minimum": 0, "type": ["integer", "null"]},
+              "temperature_default": {"minimum": 0, "type": ["number", "null"]}
+            },
+            "required": [
+              "temperature_default", "eos_threshold_default", "duration_delta_default",
+              "frames_after_eos", "min_frames_before_eos", "max_frames"
+            ],
             "type": "object"
           },
-          "model_key": {
-            "type": "string"
+          "languages": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+          "license": {
+            "additionalProperties": false,
+            "properties": {
+              "attribution_path": {"const": "ATTRIBUTION.md"},
+              "commercial_use": {"type": "boolean"},
+              "legalcode_uri": {"format": "uri", "type": "string"},
+              "restrictions": {"items": {"type": "string"}, "type": "array"},
+              "spdx": {"enum": ["CC-BY-NC-4.0", "Apache-2.0"]},
+              "uri": {"format": "uri", "type": "string"},
+              "warranty_disclaimer_section": {"type": "string"}
+            },
+            "required": ["spdx", "uri", "commercial_use", "restrictions", "attribution_path"],
+            "type": "object"
           },
-          "precision": {
-            "enum": [
-              "fp32",
-              "q8",
-              "q4",
-              "fp16"
-            ]
+          "model_key": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "type": "string"},
+          "precision": {"enum": ["fp32", "q8", "q4", "fp16"]},
+          "published_at": {"type": ["string", "null"]},
+          "runtime": {
+            "additionalProperties": false,
+            "properties": {
+              "d_model": {"minimum": 1, "type": "integer"},
+              "frame_rate": {"exclusiveMinimum": 0, "type": "number"},
+              "frame_samples": {"minimum": 1, "type": "integer"},
+              "graphs": {"items": {"type": "string"}, "minItems": 4, "type": "array"},
+              "head_dim": {"minimum": 1, "type": "integer"},
+              "kind": {"const": "phonon-streaming-onnx-v1"},
+              "latent_dim": {"minimum": 1, "type": "integer"},
+              "mimi_state": {"type": ["array", "object"]},
+              "num_heads": {"minimum": 1, "type": "integer"},
+              "num_layers": {"minimum": 1, "type": "integer"},
+              "sample_rate": {"minimum": 1, "type": "integer"}
+            },
+            "required": [
+              "kind", "graphs", "sample_rate", "frame_samples", "frame_rate",
+              "d_model", "latent_dim", "num_layers", "num_heads", "head_dim", "mimi_state"
+            ],
+            "type": "object"
           },
-          "published_at": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "source_revision": {
-            "minLength": 7,
-            "type": "string"
-          },
-          "source_uri": {
-            "format": "uri",
-            "type": ["string", "null"]
-          },
-          "tag": {
-            "type": "string"
+          "source_revision": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+          "source_uri": {"format": "uri", "type": ["string", "null"]},
+          "tag": {"minLength": 1, "type": "string"},
+          "voices": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "display_name": {"type": "string"},
+                "frames": {"minimum": 1, "type": "integer"},
+                "gender": {"type": "string"},
+                "locale": {"type": "string"},
+                "name": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$", "type": "string"},
+                "voice_id": {"type": "string"}
+              },
+              "required": ["name"],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
           }
         },
         "required": [
-          "tag",
-          "model_key",
-          "precision",
-          "source_revision",
-          "license",
-          "download_url",
-          "bytes"
+          "tag", "model_key", "precision", "source_revision", "source_uri", "runtime",
+          "generation", "license", "voices", "default_voice", "languages", "artifacts"
         ],
         "type": "object"
       },
       "type": "array"
     },
-    "schema_version": {
-      "const": 1
-    }
+    "schema_version": {"const": 2}
   },
-  "required": [
-    "schema_version",
-    "bundles"
-  ],
+  "required": ["schema_version", "bundles"],
   "type": "object"
 }

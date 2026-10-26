@@ -1,41 +1,4 @@
 {
-  "bundles": [
-    {
-      "bytes": 105335314,
-      "download_url": "https://github.com/buchwandler/phonon-onnx-bundles/releases/download/phonon-31m-en-onnx-fp32-92741c5b/phonon-31m-en-onnx-fp32-92741c5b.zip",
-      "license": {
-        "commercial_use": true,
-        "restrictions": [],
-        "spdx": "Apache-2.0"
-      },
-      "model_key": "phonon-31m-en",
-      "precision": "fp32",
-      "published_at": "2026-10-26T05:50:41Z",
-      "source_revision": "92741c5b07d085ff840e26fea8ce43110b87852f",
-      "source_uri": null,
-      "tag": "phonon-31m-en-onnx-fp32-92741c5b"
-    },
-    {
-      "bytes": 123053042,
-      "download_url": "https://github.com/buchwandler/phonon-onnx-bundles/releases/download/phonon-40m-en-onnx-fp32-cc738b7e/phonon-40m-en-onnx-fp32-cc738b7e.zip",
-      "license": {
-        "attribution_path": "ATTRIBUTION.md",
-        "commercial_use": false,
-        "legalcode_uri": "https://creativecommons.org/licenses/by-nc/4.0/legalcode.en",
-        "restrictions": [
-          "non-commercial"
-        ],
-        "spdx": "CC-BY-NC-4.0",
-        "uri": "https://creativecommons.org/licenses/by-nc/4.0/",
-        "warranty_disclaimer_section": "Section 5"
-      },
-      "model_key": "phonon-40m-en",
-      "precision": "fp32",
-      "published_at": "2026-10-26T08:28:56Z",
-      "source_revision": "cc738b7e4d182c2ba1bafb8062aa4846af000637",
-      "source_uri": "https://huggingface.co/gradium/phonon-40m-en/tree/cc738b7e4d182c2ba1bafb8062aa4846af000637",
-      "tag": "phonon-40m-en-onnx-fp32-cc738b7e"
-    }
-  ],
-  "schema_version": 1
+  "bundles": [],
+  "schema_version": 2
 }
