@@ -4,13 +4,14 @@ from __future__ import annotations
 import re
 from pathlib import PurePosixPath
 
-
 _PREFIX = "bundle--"
 _SAFE_BYTES = frozenset(
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
+)
+_ESCAPED_BYTE = re.compile(r"\.([0-9A-F]{2})")
+_LEGACY_SAFE_BYTES = frozenset(
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_."
 )
-_ESCAPED_BYTE = re.compile(r"~([0-9A-F]{2})")
-
 
 def _validate_bundle_path(path: str) -> tuple[str, ...]:
     if not isinstance(path, str) or not path or "\\" in path or "\x00" in path:
@@ -28,14 +29,28 @@ def _encode_component(component: str) -> str:
         if byte in _SAFE_BYTES:
             encoded.append(chr(byte))
         else:
-            encoded.append(f"~{byte:02X}")
+            encoded.append(f".{byte:02X}")
     return "".join(encoded)
 
+
+def legacy_github_asset_name(path: str) -> str:
+    """Return the name emitted by the first release implementation on GitHub."""
+    parts = _validate_bundle_path(path)
+    encoded_parts = []
+    for component in parts:
+        encoded = []
+        for byte in component.encode("utf-8"):
+            if byte in _LEGACY_SAFE_BYTES:
+                encoded.append(chr(byte))
+            else:
+                encoded.append(f"~{byte:02X}")
+        encoded_parts.append("".join(encoded).replace("~", "."))
+    return _PREFIX + "--".join(encoded_parts)
 
 def flattened_release_asset_name(path: str) -> str:
     """Encode a bundle-relative POSIX path as a collision-free flat asset name.
 
-    Slashes become the ``--`` component separator. Hyphens and tildes are escaped,
+    Slashes become the ``--`` component separator. Hyphens, dots, and tildes are escaped,
     so the separator and escape sequences cannot occur ambiguously in a component.
     """
     parts = _validate_bundle_path(path)
@@ -54,7 +69,7 @@ def bundle_path_from_release_asset(name: str) -> str:
         raw = bytearray()
         index = 0
         while index < len(part):
-            if part[index] == "~":
+            if part[index] == ".":
                 match = _ESCAPED_BYTE.match(part, index)
                 if match is None:
                     raise ValueError(f"invalid escape in flattened asset name: {name!r}")
@@ -77,4 +92,8 @@ def bundle_path_from_release_asset(name: str) -> str:
     return path
 
 
-__all__ = ["bundle_path_from_release_asset", "flattened_release_asset_name"]
+__all__ = [
+    "bundle_path_from_release_asset",
+    "flattened_release_asset_name",
+    "legacy_github_asset_name",
+]

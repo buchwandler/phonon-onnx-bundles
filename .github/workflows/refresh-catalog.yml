@@ -2,6 +2,11 @@ name: refresh-catalog
 
 on:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release-set version to activate (leave empty to use the current catalog version)
+        required: false
+        type: string
   schedule:
     - cron: '37 4 * * *'
 
@@ -34,8 +39,13 @@ jobs:
           python scripts/build_catalog.py
           cmp --silent /tmp/models.first.json catalog/models.json
       - name: Refresh only the currently active release version
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          release_version="$(python -c 'import json; print(json.load(open("catalog/bundles.json"))["release_version"] or "")')"
+          release_version="$RELEASE_VERSION"
+          if [[ -z "$release_version" ]]; then
+            release_version="$(python -c 'import json; print(json.load(open("catalog/bundles.json"))["release_version"] or "")')"
+          fi
           if [[ -z "$release_version" ]]; then
             echo 'No active release_version is set in catalog/bundles.json.' >&2
             exit 1

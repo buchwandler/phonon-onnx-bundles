@@ -14,7 +14,10 @@ from jsonschema import Draft202012Validator
 
 from phonon_onnx_bundles.catalog import registry
 from phonon_onnx_bundles.manifest import write_json
-from phonon_onnx_bundles.release_assets import flattened_release_asset_name
+from phonon_onnx_bundles.release_assets import (
+    flattened_release_asset_name,
+    legacy_github_asset_name,
+)
 from phonon_onnx_bundles.release_version import validate_release_version
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +74,11 @@ def _catalog_row(release: Mapping[str, Any], manifest: Mapping[str, Any]) -> dic
         remote_name = flattened_release_asset_name(path)
         remote_asset = by_name.get(remote_name)
         if remote_asset is None:
-            raise ValueError(f"{manifest.get('tag')}: missing release payload {remote_name!r}")
+            legacy_name = legacy_github_asset_name(path)
+            remote_name = legacy_name
+            remote_asset = by_name.get(legacy_name)
+        if remote_asset is None:
+            raise ValueError(f"{manifest.get('tag')}: missing release payload {flattened_release_asset_name(path)!r}")
         if isinstance(size, bool) or not isinstance(size, int) or size < 1:
             raise ValueError(f"{path}: manifest size must be a positive integer")
         if remote_asset.get("size") != size:

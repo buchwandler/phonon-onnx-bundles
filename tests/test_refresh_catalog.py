@@ -128,7 +128,7 @@ def test_refresh_emits_release_versioned_rows_and_validates_schema(tmp_path: Pat
     assert rows[0]["precision"] == "fp32"
     assert rows[0]["release_version"] == "0.2.0"
     assert rows[0]["artifacts"][0]["path"] == "config.json"
-    assert rows[0]["artifacts"][0]["download_url"].endswith("bundle--config.json")
+    assert rows[0]["artifacts"][0]["download_url"].endswith("bundle--config.2Ejson")
     data = json.loads(output.read_text(encoding="utf-8"))
     assert data["release_version"] == "0.2.0"
     schema = json.loads((Path(__file__).resolve().parents[1] / "schemas/bundle-catalog.schema.json").read_text())
@@ -149,7 +149,7 @@ def test_refresh_skips_legacy_zip_only_release(tmp_path: Path, monkeypatch):
 
 def test_refresh_fails_when_manifest_payload_asset_is_missing(tmp_path: Path, monkeypatch):
     manifest = _manifest()
-    release = _release(manifest, omit="bundle--config.json")
+    release = _release(manifest, omit="bundle--config.2Ejson")
     _patch_api(monkeypatch, {1: [release]}, {release["manifest_url"]: manifest})
     with pytest.raises(ValueError, match="missing release payload"):
         refresh_catalog.refresh("example/bundles", tmp_path / "bundles.json", None, release_version="0.2.0")

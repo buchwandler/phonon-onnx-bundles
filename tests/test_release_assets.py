@@ -11,12 +11,12 @@ from phonon_onnx_bundles.release_assets import (
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
-        ("config.json", "bundle--config.json"),
-        ("tokenizer.json", "bundle--tokenizer.json"),
-        ("onnx/text_conditioner.onnx", "bundle--onnx--text_conditioner.onnx"),
-        ("voices/easton.bin", "bundle--voices--easton.bin"),
-        ("bundle/voice-name--x.bin", "bundle--bundle--voice~2Dname~2D~2Dx.bin"),
-        ("third_party/model/NOTICE~.txt", "bundle--third_party--model--NOTICE~7E.txt"),
+        ("config.json", "bundle--config.2Ejson"),
+        ("tokenizer.json", "bundle--tokenizer.2Ejson"),
+        ("onnx/text_conditioner.onnx", "bundle--onnx--text_conditioner.2Eonnx"),
+        ("voices/easton.bin", "bundle--voices--easton.2Ebin"),
+        ("bundle/voice-name--x.bin", "bundle--bundle--voice.2Dname.2D.2Dx.2Ebin"),
+        ("third_party/model/NOTICE~.txt", "bundle--third_party--model--NOTICE.7E.2Etxt"),
     ],
 )
 def test_flat_asset_name_is_deterministic_and_reversible(path: str, expected: str):
