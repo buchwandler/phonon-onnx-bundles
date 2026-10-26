@@ -1,4 +1,19 @@
 {
-  "bundles": [],
+  "bundles": [
+    {
+      "bytes": 105335314,
+      "download_url": "https://github.com/buchwandler/phonon-onnx-bundles/releases/download/phonon-31m-en-onnx-fp32-92741c5b/phonon-31m-en-onnx-fp32-92741c5b.zip",
+      "license": {
+        "commercial_use": true,
+        "restrictions": [],
+        "spdx": "Apache-2.0"
+      },
+      "model_key": "phonon-31m-en",
+      "precision": "fp32",
+      "published_at": "2026-10-26T05:50:41Z",
+      "source_revision": "92741c5b07d085ff840e26fea8ce43110b87852f",
+      "tag": "phonon-31m-en-onnx-fp32-92741c5b"
+    }
+  ],
   "schema_version": 1
 }
