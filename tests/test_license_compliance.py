@@ -16,9 +16,9 @@ from phonon_onnx_bundles.licensing import (
     validate_license_metadata,
 )
 from phonon_onnx_bundles.manifest import inventory
+from scripts import verify_candidate
 from scripts.build_bundle import write_candidate_sidecars
 from scripts.export_phonon import preserve_upstream_notices
-from scripts import verify_candidate
 
 
 def _candidate(tmp_path: Path, precision: str = "q4"):
@@ -49,7 +49,7 @@ def _candidate(tmp_path: Path, precision: str = "q4"):
     provenance = {"source": source, "voices": voices}
     (bundle / "ATTRIBUTION.md").write_text(render_attribution(provenance, precision))
 
-    tag = f"phonon-40m-en-onnx-{precision}-01234567"
+    tag = f"phonon-40m-en-onnx-{precision}-v0.2.0-01234567-files-v1"
     for graph in verify_candidate.GRAPH_FILES:
         path = bundle / graph
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -75,7 +75,8 @@ def _candidate(tmp_path: Path, precision: str = "q4"):
         "warranty_disclaimer_section": "Section 5",
     }
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
+        "release_version": "0.2.0",
         "distribution": {"kind": "individual-files-v1"},
         "tag": tag,
         "model_key": "phonon-40m-en",
@@ -115,6 +116,16 @@ def _candidate(tmp_path: Path, precision: str = "q4"):
         },
         "assets": inventory(bundle),
     }
+    canonical_config = {
+        "schema_version": 1,
+        "runtime": manifest["runtime"],
+        "generation": manifest["generation"],
+        "voices": manifest["voices"],
+        "default_voice": manifest["default_voice"],
+        "languages": manifest["languages"],
+    }
+    (bundle / "config.json").write_text(json.dumps(canonical_config), encoding="utf-8")
+    manifest["assets"] = inventory(bundle)
     write_candidate_sidecars(root, manifest)
     return root, manifest
 
@@ -237,9 +248,27 @@ def test_license_compliance_helper_rejects_missing_or_invalid_cc_fields(tmp_path
 
 
 def test_candidate_verifier_accepts_compliant_synthetic_candidate(tmp_path: Path, monkeypatch):
-    root, _ = _candidate(tmp_path)
+    root, manifest = _candidate(tmp_path)
     _stub_onnx(monkeypatch)
     verify_candidate.verify(root)
+    canonical = json.loads((root / "bundle/config.json").read_text(encoding="utf-8"))
+    assert canonical["runtime"] == manifest["runtime"]
+    assert canonical["generation"] == manifest["generation"]
+    assert canonical["voices"] == manifest["voices"]
+    assert canonical["default_voice"] == manifest["default_voice"]
+    assert canonical["languages"] == manifest["languages"]
+
+
+
+def test_candidate_verifier_rejects_config_manifest_metadata_split(tmp_path: Path, monkeypatch):
+    root, _ = _candidate(tmp_path)
+    _stub_onnx(monkeypatch)
+    config_path = root / "bundle/config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["runtime"]["sample_rate"] += 1
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    with pytest.raises(verify_candidate.VerifyError, match="config runtime differs"):
+        verify_candidate.verify(root)
 
 def test_read_only_release_auditor_flags_legacy_catalog_metadata(tmp_path: Path):
     from scripts.audit_cc_by_nc_releases import audit_catalog

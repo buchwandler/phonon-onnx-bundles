@@ -66,7 +66,7 @@
               "head_dim": {"minimum": 1, "type": "integer"},
               "kind": {"const": "phonon-streaming-onnx-v1"},
               "latent_dim": {"minimum": 1, "type": "integer"},
-              "mimi_state": {"type": ["array", "object"]},
+              "mimi_state": {"minItems": 1, "minProperties": 1, "type": ["array", "object"]},
               "num_heads": {"minimum": 1, "type": "integer"},
               "num_layers": {"minimum": 1, "type": "integer"},
               "sample_rate": {"minimum": 1, "type": "integer"}
@@ -80,6 +80,7 @@
           "source_revision": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
           "source_uri": {"format": "uri", "type": ["string", "null"]},
           "tag": {"minLength": 1, "type": "string"},
+          "release_version": {"pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$", "type": "string"},
           "voices": {
             "items": {
               "additionalProperties": false,
@@ -99,15 +100,16 @@
           }
         },
         "required": [
-          "tag", "model_key", "precision", "source_revision", "source_uri", "runtime",
+          "tag", "release_version", "model_key", "precision", "source_revision", "source_uri", "runtime",
           "generation", "license", "voices", "default_voice", "languages", "artifacts"
         ],
         "type": "object"
       },
       "type": "array"
     },
+    "release_version": {"pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$", "type": ["string", "null"]},
     "schema_version": {"const": 2}
   },
-  "required": ["schema_version", "bundles"],
+  "required": ["schema_version", "release_version", "bundles"],
   "type": "object"
 }

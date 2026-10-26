@@ -8,12 +8,25 @@ precision layout. This makes provenance explicit and lets a future native export
 replace only this adapter without changing bundle/catalog contracts.
 """
 from __future__ import annotations
-import argparse, json, os, shutil, subprocess, sys, tempfile
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
-from phonon_onnx_bundles.catalog import registry, model_spec
+
+from phonon_onnx_bundles.catalog import model_spec, registry
+from phonon_onnx_bundles.licensing import (
+    hf_revision_uri,
+    modification_notice,
+    render_attribution,
+)
 from phonon_onnx_bundles.manifest import GRAPH_FILES, write_json
-from phonon_onnx_bundles.licensing import hf_revision_uri, modification_notice, render_attribution
+from phonon_onnx_bundles.revisions import is_commit_sha
 
 PRECISION_SUFFIX={"fp32":"","q8":"_quantized","q4":"_q4","fp16":"_fp16"}
 FLOW_GRAPHS={"flow_lm_main","flow_lm_flow"}
@@ -48,6 +61,12 @@ def _resolved_sha(repo_id:str, revision:str, token:str|None)->str:
     if not info.sha: raise ExportError(f"could not resolve immutable revision for {repo_id}@{revision}")
     return info.sha
 
+
+
+def _resolve_or_use_sha(repo_id: str, revision: str, token: str | None) -> str:
+    if is_commit_sha(revision):
+        return revision
+    return _resolved_sha(repo_id, revision, token)
 def _select_graph(raw_onnx:Path, name:str, precision:str)->Path:
     suffix=PRECISION_SUFFIX[precision]
     if precision in {"q8","q4"} and name not in FLOW_GRAPHS:
@@ -56,7 +75,16 @@ def _select_graph(raw_onnx:Path, name:str, precision:str)->Path:
     if not p.exists(): raise ExportError(f"export recipe did not produce {p.name}")
     return p
 
-def run_export(model_key:str, precision:str, output:Path, *, allow_noncommercial:bool=False, revision:str|None=None)->dict[str,Any]:
+def run_export(
+    model_key: str,
+    precision: str,
+    output: Path,
+    *,
+    allow_noncommercial: bool = False,
+    revision: str | None = None,
+    voices_revision: str | None = None,
+    exporter_revision: str | None = None,
+) -> dict[str, Any]:
     reg=registry(); spec=model_spec(model_key)
     if precision not in reg["precisions"]: raise ExportError(f"unsupported precision {precision}")
     if not spec["commercial_use"] and not allow_noncommercial:
@@ -64,10 +92,15 @@ def run_export(model_key:str, precision:str, output:Path, *, allow_noncommercial
     token=os.environ.get("HF_TOKEN") or None
     if spec.get("gated") and not token:
         raise ExportError(f"{model_key} is gated; set HF_TOKEN after accepting its Hugging Face terms")
-    source_rev=revision or spec["revision"]
-    source_sha=_resolved_sha(spec["repo_id"], source_rev, token)
-    exp=reg["exporter"]; exp_sha=_resolved_sha(exp["repo_id"], exp["revision"], token=None)
-    voices=reg["voices"]; voices_sha=_resolved_sha(voices["repo_id"], voices["revision"], token=None)
+    source_rev = revision or spec["revision"]
+    source_sha = _resolve_or_use_sha(spec["repo_id"], source_rev, token)
+    exp = reg["exporter"]
+    exp_sha = exporter_revision or exp["revision"]
+    if not is_commit_sha(exp_sha):
+        raise ExportError("exporter revision must be an immutable 40-character commit SHA")
+    voices = reg["voices"]
+    voices_rev = voices_revision or voices["revision"]
+    voices_sha = _resolve_or_use_sha(voices["repo_id"], voices_rev, token)
     with tempfile.TemporaryDirectory(prefix="phonon-onnx-") as td:
         td=Path(td)
         model_dir=_snap(spec["repo_id"], source_sha, token, ["config.json","model.safetensors","tokenizer.json","default-voice.safetensors",*UPSTREAM_NOTICE_PATTERNS])
@@ -110,7 +143,31 @@ def run_export(model_key:str, precision:str, output:Path, *, allow_noncommercial
         if not (output/rel).exists(): raise ExportError(f"missing required graph {rel}")
     return provenance
 
-def main():
-    ap=argparse.ArgumentParser(); ap.add_argument("model_key"); ap.add_argument("--precision",default="fp32",choices=PRECISION_SUFFIX); ap.add_argument("--output",type=Path,required=True); ap.add_argument("--revision"); ap.add_argument("--acknowledge-noncommercial-license","--allow-noncommercial",dest="allow_noncommercial",action="store_true",help="Acknowledge the noncommercial model-license condition; this does not grant commercial rights")
-    a=ap.parse_args(); p=run_export(a.model_key,a.precision,a.output,allow_noncommercial=a.allow_noncommercial,revision=a.revision); print(json.dumps(p,indent=2))
-if __name__=="__main__": main()
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_key")
+    parser.add_argument("--precision", default="fp32", choices=PRECISION_SUFFIX)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--revision")
+    parser.add_argument("--voices-revision")
+    parser.add_argument("--exporter-revision")
+    parser.add_argument(
+        "--acknowledge-noncommercial-license", "--allow-noncommercial",
+        dest="allow_noncommercial", action="store_true",
+        help="Acknowledge the noncommercial model-license condition; this does not grant commercial rights",
+    )
+    args = parser.parse_args()
+    provenance = run_export(
+        args.model_key,
+        args.precision,
+        args.output,
+        allow_noncommercial=args.allow_noncommercial,
+        revision=args.revision,
+        voices_revision=args.voices_revision,
+        exporter_revision=args.exporter_revision,
+    )
+    print(json.dumps(provenance, indent=2))
+
+
+if __name__ == "__main__":
+    main()

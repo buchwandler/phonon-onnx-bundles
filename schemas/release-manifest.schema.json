@@ -82,7 +82,7 @@
         "head_dim": {"minimum": 1, "type": "integer"},
         "kind": {"const": "phonon-streaming-onnx-v1"},
         "latent_dim": {"minimum": 1, "type": "integer"},
-        "mimi_state": {"type": ["array", "object"]},
+        "mimi_state": {"minItems": 1, "minProperties": 1, "type": ["array", "object"]},
         "num_heads": {"minimum": 1, "type": "integer"},
         "num_layers": {"minimum": 1, "type": "integer"},
         "sample_rate": {"minimum": 1, "type": "integer"}
@@ -93,7 +93,8 @@
       ],
       "type": "object"
     },
-    "schema_version": {"const": 2},
+    "schema_version": {"const": 3},
+    "release_version": {"pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$", "type": "string"},
     "source": {
       "additionalProperties": false,
       "properties": {
@@ -131,7 +132,7 @@
     }
   },
   "required": [
-    "schema_version", "distribution", "tag", "model_key", "precision", "source",
+    "schema_version", "release_version", "distribution", "tag", "model_key", "precision", "source",
     "exporter", "runtime", "generation", "voices", "default_voice", "languages",
     "license", "modifications", "assets"
   ],

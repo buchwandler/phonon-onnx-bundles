@@ -15,8 +15,8 @@ from phonon_onnx_bundles.catalog import model_spec
 from phonon_onnx_bundles.licensing import license_metadata
 from phonon_onnx_bundles.manifest import GRAPH_FILES, inventory, sha256, write_json
 from phonon_onnx_bundles.release_assets import flattened_release_asset_name
+from phonon_onnx_bundles.release_version import validate_release_version
 from scripts.export_phonon import run_export
-
 
 _RUNTIME_KIND = "phonon-streaming-onnx-v1"
 _PRECISIONS = ("fp32", "q8", "q4", "fp16")
@@ -45,23 +45,28 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _find_value(value: Any, keys: Sequence[str]) -> Any:
-    """Find the first named config value, preferring the current mapping."""
-    if isinstance(value, Mapping):
-        for key in keys:
-            if key in value:
-                return value[key]
-        for child in value.values():
-            found = _find_value(child, keys)
-            if found is not None:
-                return found
-    elif isinstance(value, (list, tuple)):
-        for child in value:
-            found = _find_value(child, keys)
-            if found is not None:
-                return found
-    return None
+def _lookup(mapping: Mapping[str, Any], keys: Sequence[str]) -> tuple[bool, Any]:
+    for key in keys:
+        if key in mapping:
+            return True, mapping[key]
+    return False, None
 
+
+def _config_value(config: Mapping[str, Any], section: str, aliases: Sequence[str]) -> Any:
+    """Read only the documented runtime/onnx locations and known root aliases."""
+    onnx_config = _mapping(config.get("onnx"))
+    sections = (section, "onnx", "root") if section == "runtime" else (section, "onnx.generation", "root")
+    for location in sections:
+        if location == "root":
+            mapping = config
+        elif location == "onnx.generation":
+            mapping = _mapping(onnx_config.get("generation"))
+        else:
+            mapping = _mapping(config.get(location)) if location != "onnx" else onnx_config
+        found, value = _lookup(mapping, aliases)
+        if found:
+            return value
+    return None
 
 def _positive_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -79,19 +84,16 @@ def _finite_number(value: Any, field: str, *, minimum: float | None = None) -> f
 
 
 def _generation_metadata(config: Mapping[str, Any]) -> dict[str, Any]:
-    raw = _mapping(config.get("generation"))
-    if not raw:
-        raw = _mapping(_mapping(config.get("onnx")).get("generation"))
     result: dict[str, Any] = {}
     for normalized, aliases in _GENERATION_FIELDS.items():
-        value = _find_value(raw, aliases)
+        value = _config_value(config, "generation", aliases)
         if value is None:
             result[normalized] = None
         elif normalized in {"frames_after_eos", "min_frames_before_eos", "max_frames"}:
             minimum = 1 if normalized == "max_frames" else 0
-            result[normalized] = value
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
                 raise ValueError(f"Phonon generation {normalized} is invalid")
+            result[normalized] = value
         else:
             minimum = 0.0 if normalized == "temperature_default" else None
             result[normalized] = _finite_number(value, normalized, minimum=minimum)
@@ -149,14 +151,27 @@ def _voice_metadata(config: Mapping[str, Any], bundle: Path) -> tuple[list[dict[
     return voices, default_voice, languages
 
 
-def runtime_metadata(config: Mapping[str, Any], bundle: Path, model_languages: Sequence[str]) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], str, list[str]]:
-    """Normalize runtime facts from the emitted ONNX config, not family constants."""
-    kind = _find_value(config, ("kind", "runtime_kind"))
+def normalize_phonon_config(
+    raw_config: Mapping[str, Any],
+    bundle_dir: Path,
+    model_languages: Sequence[str],
+) -> dict[str, Any]:
+    """Convert exporter metadata into the producer-owned canonical bundle contract."""
+    raw_runtime = _mapping(raw_config.get("runtime"))
+    if "kind" in raw_runtime:
+        kind = raw_runtime["kind"]
+    elif "runtime_kind" in raw_config:
+        kind = raw_config["runtime_kind"]
+    elif "kind" in raw_config:
+        kind = raw_config["kind"]
+    else:
+        kind = _RUNTIME_KIND
     if kind != _RUNTIME_KIND:
         raise ValueError(f"Phonon config runtime kind must be {_RUNTIME_KIND!r}")
-    runtime: dict[str, Any] = {"kind": kind, "graphs": list(GRAPH_FILES)}
+
+    runtime: dict[str, Any] = {"kind": _RUNTIME_KIND, "graphs": list(GRAPH_FILES)}
     for field, aliases in _RUNTIME_FIELDS.items():
-        value = _find_value(config, aliases)
+        value = _config_value(raw_config, "runtime", aliases)
         if field == "mimi_state":
             if not isinstance(value, (Mapping, list, tuple)) or not value:
                 raise ValueError("Phonon config must declare non-empty onnx.mimi_state")
@@ -168,13 +183,33 @@ def runtime_metadata(config: Mapping[str, Any], bundle: Path, model_languages: S
         else:
             runtime[field] = _positive_int(value, field)
 
-    generation = _generation_metadata(config)
-    voices, default_voice, config_languages = _voice_metadata(config, bundle)
+    generation = _generation_metadata(raw_config)
+    voices, default_voice, config_languages = _voice_metadata(raw_config, bundle_dir)
     languages = config_languages or sorted({str(value).lower() for value in model_languages})
     if not languages:
         raise ValueError("Phonon bundle must declare at least one language")
-    return runtime, generation, voices, default_voice, languages
+    return {
+        "schema_version": 1,
+        "runtime": runtime,
+        "generation": generation,
+        "voices": voices,
+        "default_voice": default_voice,
+        "languages": languages,
+    }
 
+
+def runtime_metadata(
+    config: Mapping[str, Any], bundle: Path, model_languages: Sequence[str]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], str, list[str]]:
+    """Compatibility view of canonical metadata for existing helper callers."""
+    canonical = normalize_phonon_config(config, bundle, model_languages)
+    return (
+        canonical["runtime"],
+        canonical["generation"],
+        canonical["voices"],
+        canonical["default_voice"],
+        canonical["languages"],
+    )
 
 def write_candidate_sidecars(final: Path, manifest: dict[str, Any]) -> None:
     """Write checksums, recipient notes, a ZIP, and flat per-file release assets."""
@@ -205,6 +240,7 @@ def write_candidate_sidecars(final: Path, manifest: dict[str, Any]) -> None:
     notes = (
         f"# {tag}\n\n"
         f"ONNX conversion of `{source['repo_id']}` at `{source['resolved_revision']}`.\n\n"
+        f"Release set: {manifest['release_version']}\nSource revision: {source['resolved_revision']}\n\n"
         f"Source:\n{source['uri']}\n\n"
         f"License:\n{license_name} — {license_info['uri']}\n\n"
         "This release contains a technical ONNX conversion of the upstream model. "
@@ -229,8 +265,12 @@ def build(
     dist: Path,
     *,
     allow_noncommercial: bool = False,
+    release_version: str,
     revision: str | None = None,
+    voices_revision: str | None = None,
+    exporter_revision: str | None = None,
 ) -> Path:
+    validate_release_version(release_version)
     if precision not in _PRECISIONS:
         raise ValueError(f"unsupported precision {precision!r}")
     spec = model_spec(model_key)
@@ -242,9 +282,11 @@ def build(
             payload,
             allow_noncommercial=allow_noncommercial,
             revision=revision,
+            voices_revision=voices_revision,
+            exporter_revision=exporter_revision,
         )
         source_sha = provenance["source"]["resolved_revision"]
-        tag = f"{model_key}-onnx-{precision}-{source_sha[:8]}-files-v1"
+        tag = f"{model_key}-onnx-{precision}-v{release_version}-{source_sha[:8]}-files-v1"
         final = dist / tag
         if final.exists():
             raise FileExistsError(f"candidate already exists and will not be replaced: {final}")
@@ -257,9 +299,13 @@ def build(
             raise ValueError("exported bundle has no valid config.json") from exc
         if not isinstance(config, Mapping):
             raise ValueError("exported Phonon config must be a JSON object")
-        runtime, generation, voices, default_voice, languages = runtime_metadata(
-            config, final / "bundle", spec.get("languages", ())
-        )
+        canonical_config = normalize_phonon_config(config, final / "bundle", spec.get("languages", ()))
+        write_json(config_path, canonical_config)
+        runtime = canonical_config["runtime"]
+        generation = canonical_config["generation"]
+        voices = canonical_config["voices"]
+        default_voice = canonical_config["default_voice"]
+        languages = canonical_config["languages"]
 
         restrictions = [] if spec["commercial_use"] else ["non-commercial"]
         license_details = license_metadata(spec["license"])
@@ -275,7 +321,8 @@ def build(
             license_info["warranty_disclaimer_section"] = "Section 5"
 
         manifest = {
-            "schema_version": 2,
+            "schema_version": 3,
+            "release_version": release_version,
             "distribution": {"kind": "individual-files-v1"},
             "tag": tag,
             "model_key": model_key,
@@ -301,6 +348,9 @@ def main() -> None:
     parser.add_argument("--precision", default="fp32", choices=_PRECISIONS)
     parser.add_argument("--dist", type=Path, default=Path("dist"))
     parser.add_argument("--revision")
+    parser.add_argument("--voices-revision")
+    parser.add_argument("--exporter-revision")
+    parser.add_argument("--release-version", required=True, help="release-set version, e.g. 0.2.0")
     parser.add_argument(
         "--acknowledge-noncommercial-license",
         "--allow-noncommercial",
@@ -309,7 +359,16 @@ def main() -> None:
         help="Acknowledge the noncommercial model-license condition; this does not grant commercial rights",
     )
     args = parser.parse_args()
-    print(build(args.model_key, args.precision, args.dist, allow_noncommercial=args.allow_noncommercial, revision=args.revision))
+    print(build(
+        args.model_key,
+        args.precision,
+        args.dist,
+        allow_noncommercial=args.allow_noncommercial,
+        revision=args.revision,
+        voices_revision=args.voices_revision,
+        exporter_revision=args.exporter_revision,
+        release_version=args.release_version,
+    ))
 
 
 if __name__ == "__main__":

@@ -1,21 +1,31 @@
 name: refresh-catalog
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '37 4 * * *'
-permissions: {contents: write}
+
+permissions:
+  contents: write
+
 concurrency:
-  group: phonon-bundle-catalog-refresh
+  group: phonon-onnx-catalog-activation
   cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    env: {GH_TOKEN: "${{ github.token }}"}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-        with: {ref: main, fetch-depth: 0}
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
+        with:
+          python-version: "3.12"
+          cache: pip
       - run: python -m pip install -e '.[test]'
       - name: Rebuild source catalog deterministically
         run: |
@@ -23,19 +33,23 @@ jobs:
           cp catalog/models.json /tmp/models.first.json
           python scripts/build_catalog.py
           cmp --silent /tmp/models.first.json catalog/models.json
-      - name: Refresh release catalog from immutable manifests
-        run: python scripts/refresh_catalog.py
-      - run: python scripts/check_catalog_integrity.py
-      - name: Commit verified catalog change
+      - name: Refresh only the currently active release version
+        run: |
+          release_version="$(python -c 'import json; print(json.load(open("catalog/bundles.json"))["release_version"] or "")')"
+          if [[ -z "$release_version" ]]; then
+            echo 'No active release_version is set in catalog/bundles.json.' >&2
+            exit 1
+          fi
+          python scripts/refresh_catalog.py --repository "$GITHUB_REPOSITORY" --release-version "$release_version" --require-complete
+          python scripts/check_catalog_integrity.py
+      - name: Commit verified catalog changes
         run: |
           if git diff --quiet -- catalog/; then echo 'Catalog unchanged'; exit 0; fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add catalog/
-          git commit -m 'chore: refresh Phonon ONNX catalog'
-          git pull --rebase origin main
-          python scripts/build_catalog.py
+          git commit -m 'chore: refresh active Phonon ONNX catalog'
+          git fetch origin main
+          git rebase origin/main
           python scripts/check_catalog_integrity.py
-          git add catalog/
-          if ! git diff --cached --quiet; then git commit -m 'chore: reconcile catalog after rebase'; fi
           git push origin HEAD:main

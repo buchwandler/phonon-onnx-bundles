@@ -1,4 +1,5 @@
 name: build-bundle
+
 on:
   workflow_dispatch:
     inputs:
@@ -6,22 +7,17 @@ on:
         description: Phonon model key from registry/models.json
         required: true
         default: phonon-31m-en
-        type: choice
-        options:
-          - phonon-31m-en
-          - phonon-40m-en
-          - phonon-40m-fr
-          - phonon-40m-de
-          - phonon-40m-es
-          - phonon-40m-pt
-          - phonon-40m-multilingual
+        type: string
       precision:
         required: true
         default: fp32
-        type: choice
-        options: [fp32, q8, q4, fp16]
+        type: string
+      release_version:
+        description: Required release-set identity for the immutable candidate
+        required: true
+        type: string
       allow_noncommercial:
-        description: Acknowledges the CC-BY-NC-4.0 noncommercial condition; does not grant commercial rights
+        description: Acknowledge CC-BY-NC-4.0 conditions; this does not grant commercial rights
         required: true
         default: false
         type: boolean
@@ -29,84 +25,191 @@ on:
         required: true
         default: false
         type: boolean
+      activate_catalog:
+        description: Explicitly activate only if this release version is complete
+        required: true
+        default: false
+        type: boolean
+
 permissions:
-  contents: write
+  contents: read
+
 concurrency:
-  group: phonon-onnx-${{ inputs.model_key }}-${{ inputs.precision }}
+  group: phonon-onnx-single-${{ inputs.release_version }}-${{ inputs.model_key }}-${{ inputs.precision }}
   cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      GH_TOKEN: ${{ github.token }}
+      MODEL_KEY: ${{ inputs.model_key }}
+      PRECISION: ${{ inputs.precision }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      ALLOW_NONCOMMERCIAL: ${{ inputs.allow_noncommercial }}
+      PUBLISH: ${{ inputs.publish }}
+      ACTIVATE_CATALOG: ${{ inputs.activate_catalog }}
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - name: Install
-        run: python -m pip install -e '.[build,test]'
-      - name: Unit and catalog checks
-        run: pytest -q && python scripts/check_catalog_integrity.py
-      - name: Require noncommercial-license acknowledgement
-        if: startsWith(inputs.model_key, 'phonon-40m-') && !inputs.allow_noncommercial
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Validate inputs before model downloads
         run: |
-          echo '40m model weights are CC-BY-NC-4.0; the acknowledgement does not grant commercial rights. Set allow_noncommercial=true only after reviewing the license.' >&2
-          exit 2
-      - name: Build candidate
-        run: >-
-          python scripts/build_bundle.py '${{ inputs.model_key }}'
-          --precision '${{ inputs.precision }}'
-          ${{ inputs.allow_noncommercial && '--acknowledge-noncommercial-license' || '' }}
-      - name: Resolve candidate
+          python - <<'PY'
+          import os
+          from phonon_onnx_bundles.catalog import model_spec, registry
+          from phonon_onnx_bundles.release_version import validate_release_version
+
+          validate_release_version(os.environ["RELEASE_VERSION"])
+          spec = model_spec(os.environ["MODEL_KEY"])
+          if os.environ["PRECISION"] not in registry()["precisions"]:
+              raise SystemExit(f"Unsupported precision: {os.environ['PRECISION']}")
+          if spec.get("gated") and not os.environ.get("HF_TOKEN"):
+              raise SystemExit("HF_TOKEN is required for this gated model.")
+          if not spec["commercial_use"] and os.environ["ALLOW_NONCOMMERCIAL"].lower() != "true":
+              raise SystemExit("This model is CC-BY-NC-4.0; acknowledge the non-commercial condition before building.")
+          if os.environ["ACTIVATE_CATALOG"].lower() == "true" and os.environ["PUBLISH"].lower() != "true":
+              raise SystemExit("activate_catalog=true requires publish=true.")
+          PY
+      - name: Install build and test dependencies
+        run: python -m pip install -e '.[build,test]'
+      - name: Run tests and catalog integrity
+        run: |
+          pytest -q
+          python scripts/check_catalog_integrity.py
+      - name: Build and verify candidate
         id: candidate
         run: |
-          d="$(find dist -mindepth 1 -maxdepth 1 -type d -print -quit)"
-          tag="$(basename "$d")"
-          echo "dir=$d" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-      - name: Verify ONNX, license, attribution, and release assets
-        run: python scripts/verify_candidate.py '${{ steps.candidate.outputs.dir }}'
+          set -euo pipefail
+          command=(python scripts/build_bundle.py "$MODEL_KEY" --precision "$PRECISION" --release-version "$RELEASE_VERSION")
+          if [[ "$ALLOW_NONCOMMERCIAL" == "true" ]]; then
+            command+=(--acknowledge-noncommercial-license)
+          fi
+          "${command[@]}" > build-output.log 2>&1
+          cat build-output.log
+          candidate="$(tail -n 1 build-output.log)"
+          test -f "$candidate/release-manifest.json"
+          python scripts/verify_candidate.py "$candidate"
+          echo "dir=$candidate" >> "$GITHUB_OUTPUT"
+          echo "tag=$(basename "$candidate")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.candidate.outputs.tag }}
-          path: ${{ steps.candidate.outputs.dir }}
+          name: candidate-${{ steps.candidate.outputs.tag }}
+          path: dist/
           if-no-files-found: error
-      - name: Publish immutable release
-        if: inputs.publish
-        env:
-          TAG: ${{ steps.candidate.outputs.tag }}
-          CANDIDATE: ${{ steps.candidate.outputs.dir }}
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      MODEL_KEY: ${{ inputs.model_key }}
+      PRECISION: ${{ inputs.precision }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e '.[build,test]'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*
+          path: dist
+          merge-multiple: true
+      - name: Verify immutable candidate and publish without replacement
         run: |
-          set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; refusing replacement. Publish a new immutable tag instead." >&2
-            exit 1
-          fi
-          mapfile -t payload_assets < <(find "$CANDIDATE/release-assets" -maxdepth 1 -type f -print | sort)
-          if [ "${#payload_assets[@]}" -eq 0 ]; then
-            echo "Candidate has no flattened payload assets." >&2
-            exit 1
-          fi
-          gh release create "$TAG" \
-            "$CANDIDATE/$TAG.zip" \
-            "$CANDIDATE/release-manifest.json" \
-            "$CANDIDATE/SHA256SUMS" \
-            "${payload_assets[@]}" \
-            --target "$GITHUB_SHA" \
-            --title "$TAG" \
-            --notes-file "$CANDIDATE/release-notes.md"
-      - name: Refresh catalog after publish
-        if: inputs.publish
-        run: python scripts/refresh_catalog.py
-      - name: Commit catalog change
-        if: inputs.publish
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          manifests = sorted(Path("dist").glob("*/release-manifest.json"))
+          if len(manifests) != 1:
+              raise SystemExit(f"expected exactly one candidate, found {len(manifests)}")
+          manifest_path = manifests[0]
+          candidate = manifest_path.parent
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if (manifest["model_key"], manifest["precision"], manifest["release_version"]) != (
+              os.environ["MODEL_KEY"], os.environ["PRECISION"], os.environ["RELEASE_VERSION"]
+          ):
+              raise SystemExit("candidate identity differs from the requested model, precision, or release_version")
+          subprocess.run([sys.executable, "scripts/verify_candidate.py", str(candidate)], check=True)
+          tag = manifest["tag"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          check = subprocess.run(
+              ["gh", "api", f"repos/{repository}/releases/tags/{tag}"],
+              capture_output=True, text=True,
+          )
+          if check.returncode == 0:
+              raise SystemExit(f"Immutable GitHub Release {tag} already exists; refusing to replace it.")
+          if "HTTP 404" not in check.stderr and "Not Found" not in check.stderr:
+              raise SystemExit(f"Could not safely check whether release {tag} exists: {check.stderr}")
+          assets = sorted((candidate / "release-assets").iterdir())
+          command = [
+              "gh", "release", "create", tag,
+              str(candidate / f"{tag}.zip"),
+              str(candidate / "release-manifest.json"),
+              str(candidate / "SHA256SUMS"),
+              *[str(asset) for asset in assets],
+              "--target", os.environ["GITHUB_SHA"],
+              "--title", tag,
+              "--notes-file", str(candidate / "release-notes.md"),
+          ]
+          subprocess.run(command, check=True)
+          PY
+
+  activate-catalog:
+    if: ${{ inputs.publish && inputs.activate_catalog }}
+    needs: publish
+    runs-on: ubuntu-latest
+    concurrency:
+      group: phonon-onnx-catalog-activation
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e '.[test]'
+      - name: Require a complete release version before activation
         run: |
-          if git diff --quiet -- catalog/bundles.json; then exit 0; fi
+          python scripts/refresh_catalog.py --repository "$GITHUB_REPOSITORY" --release-version "$RELEASE_VERSION" --require-complete
+          python scripts/check_catalog_integrity.py
+      - name: Commit the verified active catalog once
+        run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add catalog/bundles.json
-          git commit -m "chore: catalog ${{ steps.candidate.outputs.tag }}"
-          git pull --rebase origin main
+          if git diff --cached --quiet; then
+            echo 'Catalog did not change after activation.' >&2
+            exit 1
+          fi
+          git commit -m "chore: activate Phonon release ${RELEASE_VERSION}"
+          git fetch origin main
+          git rebase origin/main
+          python scripts/check_catalog_integrity.py
+          python -c 'import json,sys; d=json.load(open("catalog/bundles.json")); sys.exit(0 if d["release_version"] == sys.argv[1] else 1)' "$RELEASE_VERSION"
           git push origin HEAD:main

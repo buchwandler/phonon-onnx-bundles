@@ -14,7 +14,6 @@ from phonon_onnx_bundles.licensing import validate_license_metadata
 from phonon_onnx_bundles.manifest import GRAPH_FILES, sha256
 from phonon_onnx_bundles.release_assets import flattened_release_asset_name
 
-
 REQ = {
     "onnx/text_conditioner.onnx": ({"input_ids", "duration_delta"}, {"inputs_embeds", "bos_embeds"}),
     "onnx/flow_lm_main.onnx": ({"inputs_embeds"}, {"hidden", "eos_logit"}),
@@ -36,6 +35,34 @@ def verify(root: Path) -> None:
     if manifest["runtime"]["graphs"] != list(GRAPH_FILES):
         raise VerifyError("runtime graph inventory does not match the Phonon ABI")
 
+    expected_tag = (
+        f"{manifest['model_key']}-onnx-{manifest['precision']}-v{manifest['release_version']}-"
+        f"{manifest['source']['resolved_revision'][:8]}-files-v1"
+    )
+    if manifest["tag"] != expected_tag:
+        raise VerifyError("release tag does not match model, precision, release_version, and source revision")
+
+    config_path = root / "bundle" / "config.json"
+    try:
+        canonical_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise VerifyError("bundle/config.json is missing or invalid JSON") from exc
+    expected_config_keys = {"schema_version", "runtime", "generation", "voices", "default_voice", "languages"}
+    if not isinstance(canonical_config, dict) or set(canonical_config) != expected_config_keys:
+        raise VerifyError("bundle/config.json does not have the canonical Phonon config shape")
+    if type(canonical_config["schema_version"]) is not int or canonical_config["schema_version"] != 1:
+        raise VerifyError("bundle/config.json has an unsupported schema_version")
+    if canonical_config["runtime"] != manifest["runtime"]:
+        raise VerifyError("bundle config runtime differs from release manifest")
+    if canonical_config["generation"] != manifest["generation"]:
+        raise VerifyError("bundle config generation differs from release manifest")
+    for field in ("voices", "default_voice", "languages"):
+        if canonical_config[field] != manifest[field]:
+            raise VerifyError(f"bundle config {field} differs from release manifest")
+    if canonical_config["runtime"].get("kind") != "phonon-streaming-onnx-v1":
+        raise VerifyError("bundle config runtime kind is not canonical")
+    if canonical_config["runtime"].get("graphs") != list(GRAPH_FILES):
+        raise VerifyError("bundle config graph inventory does not match the Phonon ABI")
     records = manifest["assets"]
     by_path: dict[str, dict[str, Any]] = {}
     for record in records:

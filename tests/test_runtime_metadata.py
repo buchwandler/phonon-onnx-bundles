@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.build_bundle import runtime_metadata
+from scripts.build_bundle import (
+    normalize_phonon_config,
+    runtime_metadata,
+    validate_release_version,
+)
 
 
 def _config() -> dict:
@@ -101,3 +105,46 @@ def test_runtime_metadata_rejects_invalid_contract_values(tmp_path):
     config["runtime"]["sample_rate"] = 0
     with pytest.raises(ValueError, match="sample_rate"):
         runtime_metadata(config, tmp_path, ["en"])
+
+
+
+def test_normalization_injects_missing_runtime_kind_and_ignores_unrelated_nested_kind(tmp_path):
+    (tmp_path / "voices").mkdir()
+    (tmp_path / "voices/easton.bin").write_bytes(b"prompt")
+    raw = _config()
+    raw["runtime"].pop("kind")
+    raw["something"] = {"kind": "unrelated"}
+
+    canonical = normalize_phonon_config(raw, tmp_path, ["en"])
+
+    assert canonical["schema_version"] == 1
+    assert canonical["runtime"]["kind"] == "phonon-streaming-onnx-v1"
+    assert canonical["runtime"]["graphs"] == [
+        "onnx/text_conditioner.onnx",
+        "onnx/flow_lm_main.onnx",
+        "onnx/flow_lm_flow.onnx",
+        "onnx/mimi_decoder.onnx",
+    ]
+    assert set(canonical) == {
+        "schema_version", "runtime", "generation", "voices", "default_voice", "languages"
+    }
+
+
+def test_normalization_rejects_conflicting_explicit_runtime_kind(tmp_path):
+    (tmp_path / "voices").mkdir()
+    (tmp_path / "voices/easton.bin").write_bytes(b"prompt")
+    raw = _config()
+    raw["runtime"]["kind"] = "another-runtime"
+    with pytest.raises(ValueError, match="runtime kind"):
+        normalize_phonon_config(raw, tmp_path, ["en"])
+
+
+@pytest.mark.parametrize("value", ["0.2.0", "1.0.0-rc.1"])
+def test_release_version_accepts_semver_like_values(value):
+    assert validate_release_version(value) == value
+
+
+@pytest.mark.parametrize("value", ["v0.2.0", "0.2", "latest", "0.2.0+"])
+def test_release_version_rejects_invalid_values(value):
+    with pytest.raises(ValueError, match="release_version"):
+        validate_release_version(value)

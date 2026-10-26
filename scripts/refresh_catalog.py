@@ -12,9 +12,10 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from phonon_onnx_bundles.catalog import registry
 from phonon_onnx_bundles.manifest import write_json
 from phonon_onnx_bundles.release_assets import flattened_release_asset_name
-
+from phonon_onnx_bundles.release_version import validate_release_version
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -86,6 +87,7 @@ def _catalog_row(release: Mapping[str, Any], manifest: Mapping[str, Any]) -> dic
         raise ValueError(f"{manifest.get('tag')}: source metadata is missing")
     return {
         "tag": manifest["tag"],
+        "release_version": manifest["release_version"],
         "model_key": manifest["model_key"],
         "precision": manifest["precision"],
         "source_revision": source["resolved_revision"],
@@ -101,14 +103,48 @@ def _catalog_row(release: Mapping[str, Any], manifest: Mapping[str, Any]) -> dic
     }
 
 
-def refresh(repository: str, output: Path, token: str | None) -> list[dict[str, Any]]:
-    releases = json.loads(
-        request_bytes(f"https://api.github.com/repos/{repository}/releases?per_page=100", token)
-    )
-    if not isinstance(releases, list):
-        raise ValueError("GitHub releases response must be a list")
+def expected_variants() -> set[tuple[str, str]]:
+    """Return the registry-derived model/precision release cross-product."""
+    data = registry()
+    return {
+        (model_key, precision)
+        for model_key in data["models"]
+        for precision in data["precisions"]
+    }
+
+
+def _all_releases(repository: str, token: str | None):
+    page = 1
+    while True:
+        payload = json.loads(
+            request_bytes(
+                f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}",
+                token,
+            )
+        )
+        if not isinstance(payload, list):
+            raise ValueError("GitHub releases response must be a list")
+        yield from payload
+        if len(payload) < 100:
+            return
+        page += 1
+
+
+def _variant_report(variants: set[tuple[str, str]]) -> str:
+    return ", ".join(f"{model}/{precision}" for model, precision in sorted(variants))
+
+
+def refresh(
+    repository: str,
+    output: Path,
+    token: str | None,
+    *,
+    release_version: str,
+    require_complete: bool = False,
+) -> list[dict[str, Any]]:
+    release_version = validate_release_version(release_version)
     rows: list[dict[str, Any]] = []
-    for release in releases:
+    for release in _all_releases(repository, token):
         if release.get("draft") or release.get("prerelease"):
             continue
         manifest = _read_manifest(release, token)
@@ -120,6 +156,11 @@ def refresh(repository: str, output: Path, token: str | None) -> list[dict[str, 
             continue
         if not isinstance(distribution, Mapping) or distribution.get("kind") != "individual-files-v1":
             raise ValueError(f"{manifest.get('tag')}: unsupported distribution contract")
+        # Schema-2 historical releases have no release-set identity and cannot activate a catalog.
+        if manifest.get("schema_version") == 2 and "release_version" not in manifest:
+            continue
+        if manifest.get("release_version") != release_version:
+            continue
         row = _catalog_row(release, manifest)
         if row["tag"] != release.get("tag_name"):
             raise ValueError("release tag and manifest tag do not match")
@@ -130,25 +171,38 @@ def refresh(repository: str, output: Path, token: str | None) -> list[dict[str, 
     for row in rows:
         variant = (row["model_key"], row["precision"])
         if variant in seen:
-            raise ValueError(f"duplicate published Phonon variant: {variant}")
+            raise ValueError(f"duplicate published Phonon variant in release {release_version}: {variant}")
         seen.add(variant)
 
-    data = {"schema_version": 2, "bundles": rows}
+    if require_complete:
+        expected = expected_variants()
+        missing = expected - seen
+        extra = seen - expected
+        if missing or extra:
+            details = []
+            if missing:
+                details.append(f"missing variants: {_variant_report(missing)}")
+            if extra:
+                details.append(f"extra variants: {_variant_report(extra)}")
+            raise ValueError(f"release {release_version} is incomplete: {'; '.join(details)}")
+
+    data = {"schema_version": 2, "release_version": release_version, "bundles": rows}
     schema = json.loads((ROOT / "schemas/bundle-catalog.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(data)
     write_json(output, data)
     return rows
 
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", default=os.getenv("GITHUB_REPOSITORY"))
     parser.add_argument("--output", type=Path, default=Path("catalog/bundles.json"))
+    parser.add_argument("--release-version", required=True)
+    parser.add_argument("--require-complete", action="store_true")
     args = parser.parse_args()
     if not args.repository:
         parser.error("--repository or GITHUB_REPOSITORY is required")
     token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
-    rows = refresh(args.repository, args.output, token)
+    rows = refresh(args.repository, args.output, token, release_version=args.release_version, require_complete=args.require_complete)
     print(f"wrote {len(rows)} installable bundles to {args.output}")
 
 
